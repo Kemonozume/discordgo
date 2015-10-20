@@ -43,7 +43,7 @@ type dReadyMessage struct {
 		ReadState         []dRReadState      `json:"read_state"`
 		PrivateChannels   []dRPrivateChannel `json:"private_channels"`
 		HeartbeatInterval int                `json:"heartbeat_interval"`
-		Guilds            []dRGuild          `json:"guilds"`
+		Guilds            []DRGuild          `json:"guilds"`
 	} `json:"d"`
 }
 
@@ -77,9 +77,9 @@ type dRRecipient struct {
 	Avatar        string `json:"avatar"`
 }
 
-type dRGuild struct {
+type DRGuild struct {
 	VoiceStates  []interface{} `json:"voice_states"`
-	Roles        []dRRole      `json:"roles"`
+	Roles        []DRRole      `json:"roles"`
 	Region       string        `json:"region"`
 	Presences    []dRPresence  `json:"presences"`
 	OwnerID      string        `json:"owner_id"`
@@ -93,7 +93,7 @@ type dRGuild struct {
 	AfkChannelID interface{}   `json:"afk_channel_id"`
 }
 
-type dRRole struct {
+type DRRole struct {
 	Position    int    `json:"position"`
 	Permissions int    `json:"permissions"`
 	Name        string `json:"name"`

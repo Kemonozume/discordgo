@@ -24,10 +24,11 @@ var (
 type HandleMessage func(DMessageCreate, *DiscordBot)
 
 type DiscordBot struct {
-	User dROurUser
+	User              dROurUser
 	Members           []DRMember
-	Roles             []dRRole
+	Roles             []DRRole
 	Channels          []DRChannel
+	Guilds            []DRGuild
 	HeartbeatInterval int
 	token             string
 	gateway           string
@@ -223,6 +224,7 @@ func (d *DiscordBot) Start() (ok bool) {
 
 			d.User = ReadyMessage.D.User
 			for _, v := range ReadyMessage.D.Guilds {
+				d.Guilds = append(d.Guilds, v)
 				d.Members = append(d.Members, v.Members...)
 			}
 		}
@@ -232,7 +234,7 @@ func (d *DiscordBot) Start() (ok bool) {
 			ok = true
 			d.mut.Unlock()
 			break
-		}else {
+		} else {
 			d.mut.Unlock()
 		}
 	}
@@ -276,6 +278,28 @@ func (d *DiscordBot) SendMessage(message DMessageSend, channelid string) (by []b
 		return
 	}
 	req, err := http.NewRequest("POST", "https://discordapp.com/api/channels/"+channelid+"/messages", bytes.NewReader(bmessage))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Add("authorization", d.token)
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	by, err = ioutil.ReadAll(resp.Body)
+	return
+}
+
+func (d *DiscordBot) ChangeRolesForUser(user DRMember, guildid string) (by []byte, err error) {
+	ma := map[string]interface{}{
+		"roles": user.Roles,
+	}
+	bmessage, err := json.Marshal(ma)
+	if err != nil {
+		return
+	}
+	req, err := http.NewRequest("PATCH", "https://discordapp.com/api/guilds/"+guildid+"/members/"+user.User.ID, bytes.NewReader(bmessage))
 	if err != nil {
 		return
 	}
