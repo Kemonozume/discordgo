@@ -14,23 +14,9 @@ import (
 	"io/ioutil"
 	"net/http/httputil"
 
-	"github.com/Kemonozume/discordgo/Godeps/_workspace/src/github.com/Kemonozume/restcl"
-	"github.com/Kemonozume/discordgo/Godeps/_workspace/src/github.com/gorilla/websocket"
+	"github.com/Kemonozume/restcl"
+	"github.com/gorilla/websocket"
 )
-
-var (
-	baseURL    = "https://discordapp.com/api"
-	loginURL   = baseURL + "/auth/login"
-	gatewayURL = baseURL + "/gateway"
-)
-
-var client *http.Client = &http.Client{
-	Timeout: time.Duration(30 * time.Second),
-	Transport: &http.Transport{
-		Proxy:             http.ProxyFromEnvironment,
-		DisableKeepAlives: true,
-	},
-}
 
 type DiscordBot struct {
 	Guilds            []Guild
