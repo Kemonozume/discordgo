@@ -24,10 +24,6 @@ var (
 type HandleMessage func(DMessageCreate, *DiscordBot)
 
 type DiscordBot struct {
-	User              dROurUser
-	Members           []DRMember
-	Roles             []DRRole
-	Channels          []DRChannel
 	Guilds            []DRGuild
 	HeartbeatInterval int
 	token             string
@@ -50,10 +46,89 @@ func NewDiscordBot() *DiscordBot {
 	}
 }
 
-func (d *DiscordBot) GetUserByName(name string) DRMember {
-	for _, v := range d.Members {
-		if v.User.Username == name {
-			return v
+func (d *DiscordBot) getGuildById(id string) (guild DRGuild, index int) {
+	for idx, guild1 := range d.Guilds {
+		if guild1.ID == id {
+			guild = guild1
+			index = idx
+			break
+		}
+	}
+	return
+}
+
+func (d *DiscordBot) updatePresence(msg dPUMessage) {
+	guild, index := d.getGuildById(msg.D.GuildID)
+	if guild.ID != "" {
+		var index2 int
+		var presence dRPresence
+		for idx, pres := range guild.Presences {
+			if pres.User.ID == msg.D.User.ID {
+				presence = pres
+				presence.User = msg.D.User
+				presence.GameID = msg.D.GameID
+				presence.Status = msg.D.Status
+				index2 = idx
+				break
+			}
+		}
+		guild.Presences[index2] = presence
+		d.Guilds[index] = guild
+	}
+}
+
+func (d *DiscordBot) updateMemberFromGuild(msg dGMUMessage) {
+	guild, index := d.getGuildById(msg.D.GuildID)
+	if guild.ID != "" {
+		var index2 int
+		var umember DRMember
+		for idx, member := range guild.Members {
+			if member.User.ID == msg.D.User.ID {
+				umember = member
+				umember.Roles = msg.D.Roles
+				index2 = idx
+				break
+			}
+		}
+		guild.Members[index2] = umember
+		d.Guilds[index] = guild
+	}
+}
+
+func (d *DiscordBot) removeMemberFromGuild(user DRUser, guildid string) {
+	guild, index := d.getGuildById(guildid)
+	if guild.ID != "" {
+		var members []DRMember
+		for _, member := range guild.Members {
+			if !(member.User.ID == user.ID) {
+				members = append(members, member)
+			}
+		}
+		guild.Members = members
+		d.Guilds[index] = guild
+	}
+}
+
+func (d *DiscordBot) addMemberToGuild(msg dGMAMessage) {
+	guild, index := d.getGuildById(msg.D.GuildID)
+	if guild.ID != "" {
+		member := DRMember{}
+		member.User = msg.D.User
+		member.JoinedAt = msg.D.JoinedAt
+		member.Deaf = false
+		member.Roles = msg.D.Roles
+		member.Mute = false
+		guild.Members = append(guild.Members, member)
+		d.Guilds[index] = guild
+	}
+}
+
+func (d *DiscordBot) GetMemberByName(name string) DRMember {
+	for _, guild := range d.Guilds {
+		for _, member := range guild.Members {
+			if member.User.Username == name {
+				return member
+			}
 		}
 	}
 	return DRMember{}
@@ -196,6 +271,26 @@ func (d *DiscordBot) Start() (ok bool) {
 		}
 
 		switch code {
+		case "GUILD_MEMBER_REMOVE":
+			var GMRemove dGMRMessage
+			err := json.Unmarshal(message, &GMRemove)
+			checkErr(err)
+			d.removeMemberFromGuild(GMRemove.D.User, GMRemove.D.GuildID)
+		case "GUILD_MEMBER_ADD":
+			var GMAdd dGMAMessage
+			err := json.Unmarshal(message, &GMAdd)
+			checkErr(err)
+			d.addMemberToGuild(GMAdd)
+		case "GUILD_MEMBER_UPDATE":
+			var GMUpdate dGMUMessage
+			err := json.Unmarshal(message, &GMUpdate)
+			checkErr(err)
+			d.updateMemberFromGuild(GMUpdate)
+		case "PRESENCE_UPDATE":
+			var PUpdate dPUMessage
+			err := json.Unmarshal(message, &PUpdate)
+			checkErr(err)
+			d.updatePresence(PUpdate)
 		case "MESSAGE_CREATE":
 			var MessageCreate DMessageCreate
 			err := json.Unmarshal(message, &MessageCreate)
@@ -221,11 +316,8 @@ func (d *DiscordBot) Start() (ok bool) {
 					d.conn.WriteMessage(websocket.TextMessage, by)
 				}
 			}()
-
-			d.User = ReadyMessage.D.User
 			for _, v := range ReadyMessage.D.Guilds {
 				d.Guilds = append(d.Guilds, v)
-				d.Members = append(d.Members, v.Members...)
 			}
 		}
 

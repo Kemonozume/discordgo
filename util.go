@@ -185,3 +185,53 @@ type dLoginMessage struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+
+//Guild Member Remove message
+type dGMRMessage struct {
+	T  string `json:"t"`
+	S  int    `json:"s"`
+	Op int    `json:"op"`
+	D  struct {
+		User    DRUser `json:"user"`
+		GuildID string `json:"guild_id"`
+	} `json:"d"`
+}
+
+//Guild Member Added message
+type dGMAMessage struct {
+	T  string `json:"t"`
+	S  int    `json:"s"`
+	Op int    `json:"op"`
+	D  struct {
+		User     DRUser    `json:"user"`
+		Roles    []string  `json:"roles"`
+		JoinedAt time.Time `json:"joined_at"`
+		GuildID  string    `json:"guild_id"`
+	} `json:"d"`
+}
+
+//Guild Member Update message
+type dGMUMessage struct {
+	T  string `json:"t"`
+	S  int    `json:"s"`
+	Op int    `json:"op"`
+	D  struct {
+		User    DRUser   `json:"user"`
+		Roles   []string `json:"roles"`
+		GuildID string   `json:"guild_id"`
+	} `json:"d"`
+}
+
+//Presence Update Message
+type dPUMessage struct {
+	T  string `json:"t"`
+	S  int    `json:"s"`
+	Op int    `json:"op"`
+	D  struct {
+		User    DRUser      `json:"user"`
+		Status  string      `json:"status"`
+		Roles   []string    `json:"roles"`
+		GuildID string      `json:"guild_id"`
+		GameID  interface{} `json:"game_id"`
+	} `json:"d"`
+}
