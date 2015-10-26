@@ -3,7 +3,6 @@ package discordgo
 import (
 	"crypto/tls"
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -12,7 +11,11 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/gorilla/websocket"
+	"io/ioutil"
+	"net/http/httputil"
+
+	"github.com/Kemonozume/discordgo/Godeps/_workspace/src/github.com/Kemonozume/restcl"
+	"github.com/Kemonozume/discordgo/Godeps/_workspace/src/github.com/gorilla/websocket"
 )
 
 var (
@@ -21,10 +24,16 @@ var (
 	gatewayURL = baseURL + "/gateway"
 )
 
-type HandleMessage func(DMessageCreate, *DiscordBot)
+var client *http.Client = &http.Client{
+	Timeout: time.Duration(30 * time.Second),
+	Transport: &http.Transport{
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
+	},
+}
 
 type DiscordBot struct {
-	Guilds            []DRGuild
+	Guilds            []Guild
 	HeartbeatInterval int
 	token             string
 	gateway           string
@@ -34,19 +43,36 @@ type DiscordBot struct {
 	mut               *sync.Mutex
 	isRunning         bool
 	fun               HandleMessage
+	rest              *restcl.Rest
 }
 
+type HandleMessage func(MessageResponse, *DiscordBot)
+
 func NewDiscordBot() *DiscordBot {
-	return &DiscordBot{
+	d := &DiscordBot{
 		dialer: websocket.Dialer{Subprotocols: []string{""}, TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			ServerName:         "discord.gg",
 		}},
 		mut: &sync.Mutex{},
 	}
+
+	rest := restcl.NewRest()
+	rest.SetPrefix("https://discordapp.com/api").Use(d.modify)
+	rest.Create("/auth/login").SetMethod("POST").Build("login")
+	rest.Create("/gateway").SetMethod("GET").Build("gateway")
+	rest.Create("/channels/{channelid}/messages").SetMethod("POST").Build("sendmessage")
+	rest.Create("/guilds/{guildid}/members/{userid}").SetMethod("PATCH").Build("changerole")
+	d.rest = rest
+	return d
 }
 
-func (d *DiscordBot) getGuildById(id string) (guild DRGuild, index int) {
+func (d *DiscordBot) modify(req *http.Request) {
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Add("authorization", d.token)
+}
+
+func (d *DiscordBot) getGuildById(id string) (guild Guild, index int) {
 	for idx, guild1 := range d.Guilds {
 		if guild1.ID == id {
 			guild = guild1
@@ -61,7 +87,7 @@ func (d *DiscordBot) updatePresence(msg dPUMessage) {
 	guild, index := d.getGuildById(msg.D.GuildID)
 	if guild.ID != "" {
 		var index2 int
-		var presence dRPresence
+		var presence Presence
 		for idx, pres := range guild.Presences {
 			if pres.User.ID == msg.D.User.ID {
 				presence = pres
@@ -81,7 +107,7 @@ func (d *DiscordBot) updateMemberFromGuild(msg dGMUMessage) {
 	guild, index := d.getGuildById(msg.D.GuildID)
 	if guild.ID != "" {
 		var index2 int
-		var umember DRMember
+		var umember Member
 		for idx, member := range guild.Members {
 			if member.User.ID == msg.D.User.ID {
 				umember = member
@@ -95,10 +121,10 @@ func (d *DiscordBot) updateMemberFromGuild(msg dGMUMessage) {
 	}
 }
 
-func (d *DiscordBot) removeMemberFromGuild(user DRUser, guildid string) {
+func (d *DiscordBot) removeMemberFromGuild(user User, guildid string) {
 	guild, index := d.getGuildById(guildid)
 	if guild.ID != "" {
-		var members []DRMember
+		var members []Member
 		for _, member := range guild.Members {
 			if !(member.User.ID == user.ID) {
 				members = append(members, member)
@@ -112,7 +138,7 @@ func (d *DiscordBot) removeMemberFromGuild(user DRUser, guildid string) {
 func (d *DiscordBot) addMemberToGuild(msg dGMAMessage) {
 	guild, index := d.getGuildById(msg.D.GuildID)
 	if guild.ID != "" {
-		member := DRMember{}
+		member := Member{}
 		member.User = msg.D.User
 		member.JoinedAt = msg.D.JoinedAt
 		member.Deaf = false
@@ -123,7 +149,7 @@ func (d *DiscordBot) addMemberToGuild(msg dGMAMessage) {
 	}
 }
 
-func (d *DiscordBot) GetMemberByName(name string) DRMember {
+func (d *DiscordBot) GetMemberByName(name string) Member {
 	for _, guild := range d.Guilds {
 		for _, member := range guild.Members {
 			if member.User.Username == name {
@@ -131,7 +157,7 @@ func (d *DiscordBot) GetMemberByName(name string) DRMember {
 			}
 		}
 	}
-	return DRMember{}
+	return Member{}
 }
 
 func (d *DiscordBot) SetHandleFunction(f HandleMessage) {
@@ -139,7 +165,7 @@ func (d *DiscordBot) SetHandleFunction(f HandleMessage) {
 }
 
 func (d *DiscordBot) Login(email string, password string) error {
-	login := dLoginMessage{
+	login := loginMessage{
 		Email:    email,
 		Password: password,
 	}
@@ -147,20 +173,9 @@ func (d *DiscordBot) Login(email string, password string) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", loginURL, bytes.NewReader(by))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
+
 	var v map[string]interface{}
-	err = transformToJson(resp, &v)
-	if err != nil {
-		return err
-	}
+	d.rest.Get("login").SetBody(bytes.NewReader(by)).Exec(&v)
 	token, exists := v["token"]
 	if exists {
 		d.token = token.(string)
@@ -171,23 +186,11 @@ func (d *DiscordBot) Login(email string, password string) error {
 }
 
 func (d *DiscordBot) getGateway() (err error) {
-	req, err := http.NewRequest("GET", gatewayURL, nil)
-	if err != nil {
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Add("origin", "https://discordapp.com")
-	req.Header.Add("authorization", d.token)
-	resp, err := client.Do(req)
-	if err != nil {
-		return
-	}
 	var v map[string]interface{}
-	err = transformToJson(resp, &v)
+	_, err = d.rest.Get("gateway").Exec(&v)
 	if err != nil {
-		return err
+		return
 	}
-
 	gate, exists := v["url"]
 	if exists {
 		d.gateway = gate.(string)
@@ -198,7 +201,7 @@ func (d *DiscordBot) getGateway() (err error) {
 }
 
 func (d *DiscordBot) handshake() (err error) {
-	a := dHandshake{
+	a := handshake{
 		Op: 2,
 		D: dHD{
 			Token: d.token,
@@ -292,7 +295,7 @@ func (d *DiscordBot) Start() (ok bool) {
 			checkErr(err)
 			d.updatePresence(PUpdate)
 		case "MESSAGE_CREATE":
-			var MessageCreate DMessageCreate
+			var MessageCreate MessageResponse
 			err := json.Unmarshal(message, &MessageCreate)
 			checkErr(err)
 			if d.fun != nil {
@@ -352,38 +355,21 @@ func checkErr(err error) {
 	}
 }
 
-var client *http.Client = &http.Client{
-	Timeout: time.Duration(30 * time.Second),
-	Transport: &http.Transport{
-		Proxy:             http.ProxyFromEnvironment,
-		DisableKeepAlives: true,
-	},
-}
-
 func makeTimestamp() int64 {
 	return time.Now().UnixNano() / int64(time.Millisecond)
 }
 
-func (d *DiscordBot) SendMessage(message DMessageSend, channelid string) (by []byte, err error) {
+func (d *DiscordBot) SendMessage(message MessageRequest, channelid string) (err error) {
 	bmessage, err := json.Marshal(message)
 	if err != nil {
 		return
 	}
-	req, err := http.NewRequest("POST", "https://discordapp.com/api/channels/"+channelid+"/messages", bytes.NewReader(bmessage))
-	if err != nil {
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Add("authorization", d.token)
-	resp, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	by, err = ioutil.ReadAll(resp.Body)
+
+	_, err = d.rest.Get("sendmessage").SetParams("channelid", channelid).SetBody(bytes.NewReader(bmessage)).Exec(nil)
 	return
 }
 
-func (d *DiscordBot) ChangeRolesForUser(user DRMember, guildid string) (by []byte, err error) {
+func (d *DiscordBot) ChangeRolesForUser(user Member, guildid string) (err error) {
 	ma := map[string]interface{}{
 		"roles": user.Roles,
 	}
@@ -391,26 +377,24 @@ func (d *DiscordBot) ChangeRolesForUser(user DRMember, guildid string) (by []byt
 	if err != nil {
 		return
 	}
-	req, err := http.NewRequest("PATCH", "https://discordapp.com/api/guilds/"+guildid+"/members/"+user.User.ID, bytes.NewReader(bmessage))
-	if err != nil {
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Add("authorization", d.token)
-	resp, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	by, err = ioutil.ReadAll(resp.Body)
+	_, err = d.rest.Get("changerole").SetParams("guildid", guildid, "userid", user.User.ID).
+		SetBody(bytes.NewReader(bmessage)).Exec(nil)
+
 	return
 }
 
-func transformToJson(resp *http.Response, c interface{}) (err error) {
-	defer resp.Body.Close()
-	by, err := ioutil.ReadAll(resp.Body)
+func dumpRequest(req *http.Request, name string) {
+	dump1, err := httputil.DumpRequestOut(req, true)
 	if err != nil {
-		return
+		panic(err.Error())
 	}
-	err = json.Unmarshal(by, c)
-	return
+	ioutil.WriteFile(name, dump1, 0777)
+}
+
+func dumpResponse(resp *http.Response, name string) {
+	dump, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		panic(err.Error())
+	}
+	ioutil.WriteFile(name, dump, 0777)
 }

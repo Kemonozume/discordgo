@@ -7,12 +7,12 @@ import (
 )
 
 //GATEWAY RESPONSE STRUCT
-type dGatewayResponse struct {
+type gatewayResponse struct {
 	URL string `json:"url"`
 }
 
 //HANDSHAKE REQUEST STRUCT
-type dHandshake struct {
+type handshake struct {
 	Op int `json:"op"`
 	D  dHD `json:"d"`
 }
@@ -40,10 +40,10 @@ type dReadyMessage struct {
 		V                 int                `json:"v"`
 		User              dROurUser          `json:"user"`
 		SessionID         string             `json:"session_id"`
-		ReadState         []dRReadState      `json:"read_state"`
-		PrivateChannels   []dRPrivateChannel `json:"private_channels"`
+		ReadState         []readState      `json:"read_state"`
+		PrivateChannels   []privateChannel `json:"private_channels"`
 		HeartbeatInterval int                `json:"heartbeat_interval"`
-		Guilds            []DRGuild          `json:"guilds"`
+		Guilds            []Guild          `json:"guilds"`
 	} `json:"d"`
 }
 
@@ -57,43 +57,44 @@ type dROurUser struct {
 	Avatar        string `json:"avatar"`
 }
 
-type dRReadState struct {
+type readState struct {
 	MentionCount  int    `json:"mention_count"`
 	LastMessageID string `json:"last_message_id"`
 	ID            string `json:"id"`
 }
 
-type dRPrivateChannel struct {
-	Recipient     dRRecipient `json:"recipient"`
+type privateChannel struct {
+	Recipient recipient `json:"recipient"`
 	LastMessageID string      `json:"last_message_id"`
 	IsPrivate     bool        `json:"is_private"`
 	ID            string      `json:"id"`
 }
 
-type dRRecipient struct {
+type recipient struct {
 	Username      string `json:"username"`
 	ID            string `json:"id"`
 	Discriminator string `json:"discriminator"`
 	Avatar        string `json:"avatar"`
 }
 
-type DRGuild struct {
+//Guild struct (contains members, member Status and channels
+type Guild struct {
 	VoiceStates  []interface{} `json:"voice_states"`
-	Roles        []DRRole      `json:"roles"`
+	Roles        []Role      `json:"roles"`
 	Region       string        `json:"region"`
-	Presences    []dRPresence  `json:"presences"`
+	Presences    []Presence  `json:"presences"`
 	OwnerID      string        `json:"owner_id"`
 	Name         string        `json:"name"`
-	Members      []DRMember    `json:"members"`
+	Members      []Member    `json:"members"`
 	JoinedAt     time.Time     `json:"joined_at"`
 	ID           string        `json:"id"`
 	Icon         string        `json:"icon"`
-	Channels     []DRChannel   `json:"channels"`
+	Channels     []Channel   `json:"channels"`
 	AfkTimeout   int           `json:"afk_timeout"`
 	AfkChannelID interface{}   `json:"afk_channel_id"`
 }
 
-type DRRole struct {
+type Role struct {
 	Position    int    `json:"position"`
 	Permissions int    `json:"permissions"`
 	Name        string `json:"name"`
@@ -102,32 +103,32 @@ type DRRole struct {
 	Color       int    `json:"color"`
 }
 
-type dRPresence struct {
-	User   DRUser      `json:"user"`
+type Presence struct {
+	User User      `json:"user"`
 	Status string      `json:"status"`
 	GameID interface{} `json:"game_id"`
 }
 
-type DRUser struct {
+type User struct {
 	Username      string      `json:"username"`
 	ID            string      `json:"id"`
 	Discriminator json.Number `json:"discriminator,Number"`
 	Avatar        string      `json:"avatar"`
 }
 
-func (d DRUser) Mention() string {
+func (d User) Mention() string {
 	return fmt.Sprintf("<@%v>", d.ID)
 }
 
-type DRMember struct {
-	User     DRUser    `json:"user"`
+type Member struct {
+	User User    `json:"user"`
 	Roles    []string  `json:"roles"`
 	Mute     bool      `json:"mute"`
 	JoinedAt time.Time `json:"joined_at"`
 	Deaf     bool      `json:"deaf"`
 }
 
-type DRChannel struct {
+type Channel struct {
 	Type                 string                   `json:"type"`
 	Topic                string                   `json:"topic"`
 	Position             int                      `json:"position"`
@@ -145,43 +146,43 @@ type dRPermissionOverwrites struct {
 }
 
 //MESSAGE_CREATE
-type DMessageCreate struct {
+type MessageResponse struct {
 	Op int    `json:"op"`
 	S  int    `json:"s"`
 	T  string `json:"t"`
 	D  struct {
 		Attachments     []interface{} `json:"attachments"`
-		Author          DRUser        `json:"author"`
+		Author          User        `json:"author"`
 		ChannelID       string        `json:"channel_id"`
 		Content         string        `json:"content"`
 		EditedTimestamp interface{}   `json:"edited_timestamp"`
 		Embeds          []interface{} `json:"embeds"`
 		ID              string        `json:"id"`
 		MentionEveryone bool          `json:"mention_everyone"`
-		Mentions        []DRUser      `json:"mentions"`
+		Mentions        []User      `json:"mentions"`
 		Nonce           string        `json:"nonce"`
 		Timestamp       string        `json:"timestamp"`
 		Tts             bool          `json:"tts"`
 	} `json:"d"`
 }
 
-//Message SEnd
-type DMessageSend struct {
+//Message_Send
+type MessageRequest struct {
 	Content  string   `json:"content"`
 	Mentions []string `json:"mentions"`
 	Tts      bool     `json:"tts"`
 }
 
-func (d *DMessageSend) AddMention(user DRUser) {
+func (d *MessageRequest) AddMention(user User) {
 	d.Mentions = append(d.Mentions, user.ID)
 }
 
-func NewMessage(content string) DMessageSend {
-	return DMessageSend{Content: content}
+func NewMessage(content string) MessageRequest {
+	return MessageRequest{Content: content}
 }
 
 //Login Message
-type dLoginMessage struct {
+type loginMessage struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -192,7 +193,7 @@ type dGMRMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User    DRUser `json:"user"`
+		User User `json:"user"`
 		GuildID string `json:"guild_id"`
 	} `json:"d"`
 }
@@ -203,7 +204,7 @@ type dGMAMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User     DRUser    `json:"user"`
+		User User    `json:"user"`
 		Roles    []string  `json:"roles"`
 		JoinedAt time.Time `json:"joined_at"`
 		GuildID  string    `json:"guild_id"`
@@ -216,7 +217,7 @@ type dGMUMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User    DRUser   `json:"user"`
+		User User   `json:"user"`
 		Roles   []string `json:"roles"`
 		GuildID string   `json:"guild_id"`
 	} `json:"d"`
@@ -228,7 +229,7 @@ type dPUMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User    DRUser      `json:"user"`
+		User User      `json:"user"`
 		Status  string      `json:"status"`
 		Roles   []string    `json:"roles"`
 		GuildID string      `json:"guild_id"`
