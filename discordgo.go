@@ -259,7 +259,15 @@ func (d *DiscordBot) Start() (ok bool) {
 			break
 		}
 
-		go d.handleMessage(obj, message)
+		code, ok := obj["t"].(string)
+		if !ok {
+			log.Println("t doesnt exist")
+			log.Println(message)
+			d.stopHeartBeat()
+			break
+		}
+
+		go d.handleMessage(code, message)
 
 		d.mut.Lock()
 		if !d.isRunning {
@@ -274,15 +282,7 @@ func (d *DiscordBot) Start() (ok bool) {
 	return
 }
 
-func (d *DiscordBot) handleMessage(obj map[string]interface{}, message []byte) {
-	code, ok := obj["t"].(string)
-	if !ok {
-		log.Println("t doesnt exist")
-		log.Println(message)
-		d.stopHeartBeat()
-		break
-	}
-
+func (d *DiscordBot) handleMessage(code string, message []byte) {
 	switch code {
 	case EVENT_GUILD_MEMBER_REMOVE:
 		var GMRemove dGMRMessage
