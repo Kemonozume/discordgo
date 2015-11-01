@@ -29,9 +29,11 @@ type DiscordBot struct {
 	mut               *sync.Mutex
 	isRunning         bool
 	fun               HandleMessage
+	readyfunc         ReadyFunction
 	rest              *restcl.Rest
 }
 
+type ReadyFunction func(*DiscordBot)
 type HandleMessage func(MessageResponse, *DiscordBot)
 
 func NewDiscordBot() *DiscordBot {
@@ -148,6 +150,10 @@ func (d *DiscordBot) GetMemberByName(name string) Member {
 
 func (d *DiscordBot) SetHandleFunction(f HandleMessage) {
 	d.fun = f
+}
+
+func (d *DiscordBot) SetReadyFunction(f ReadyFunction) {
+	d.readyfunc = f
 }
 
 func (d *DiscordBot) Login(email string, password string) error {
@@ -307,6 +313,9 @@ func (d *DiscordBot) Start() (ok bool) {
 			}()
 			for _, v := range ReadyMessage.D.Guilds {
 				d.Guilds = append(d.Guilds, v)
+			}
+			if d.readyfunc != nil {
+				d.readyfunc(d)
 			}
 		}
 
