@@ -250,7 +250,16 @@ func (d *DiscordBot) Start() (ok bool) {
 			break
 		}
 
-		go d.handleMessage(message)
+		//transform message to get a look at the T variable that specifies what kind of message we get
+		var obj map[string]interface{}
+		err = json.Unmarshal(message, &obj)
+		if err != nil {
+			log.Println("read: ", err)
+			d.stopHeartBeat()
+			break
+		}
+
+		go d.handleMessage(obj, message)
 
 		d.mut.Lock()
 		if !d.isRunning {
@@ -265,16 +274,7 @@ func (d *DiscordBot) Start() (ok bool) {
 	return
 }
 
-func (d *DiscordBot) handleMessage(message []byte) {
-	//transform message to get a look at the T variable that specifies what kind of message we get
-	var obj map[string]interface{}
-	err := json.Unmarshal(message, &obj)
-	if err != nil {
-		log.Println("read: ", err)
-		d.stopHeartBeat()
-		break
-	}
-
+func (d *DiscordBot) handleMessage(obj map[string]interface{}, message []byte) {
 	code, ok := obj["t"].(string)
 	if !ok {
 		log.Println("t doesnt exist")
