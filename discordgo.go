@@ -29,11 +29,11 @@ type DiscordBot struct {
 	mut               *sync.Mutex
 	isRunning         bool
 	fun               HandleMessage
-	readyfunc         ReadyFunction
+	eventFuncs        map[string]EventFunction
 	rest              *restcl.Rest
 }
 
-type ReadyFunction func(*DiscordBot)
+type EventFunction func(*DiscordBot)
 type HandleMessage func(MessageResponse, *DiscordBot)
 
 func NewDiscordBot() *DiscordBot {
@@ -42,7 +42,8 @@ func NewDiscordBot() *DiscordBot {
 			InsecureSkipVerify: true,
 			ServerName:         "discord.gg",
 		}},
-		mut: &sync.Mutex{},
+		eventFuncs: make(map[string]EventFunction),
+		mut:        &sync.Mutex{},
 	}
 
 	rest := restcl.NewRest()
@@ -152,8 +153,9 @@ func (d *DiscordBot) SetHandleFunction(f HandleMessage) {
 	d.fun = f
 }
 
-func (d *DiscordBot) SetReadyFunction(f ReadyFunction) {
-	d.readyfunc = f
+func (d *DiscordBot) AddCallBack(event string, f EventFunction) {
+	//TODO check if event exists and panic if it doesnt
+	d.eventFuncs[event] = f
 }
 
 func (d *DiscordBot) Login(email string, password string) error {
@@ -266,34 +268,59 @@ func (d *DiscordBot) Start() (ok bool) {
 		}
 
 		switch code {
-		case "GUILD_MEMBER_REMOVE":
+		case EVENT_GUILD_MEMBER_REMOVE:
 			var GMRemove dGMRMessage
 			err := json.Unmarshal(message, &GMRemove)
 			checkErr(err)
 			d.removeMemberFromGuild(GMRemove.D.User, GMRemove.D.GuildID)
-		case "GUILD_MEMBER_ADD":
+			f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_REMOVE]
+			if exists {
+				f(d)
+			}
+
+		case EVENT_GUILD_MEMBER_ADD:
 			var GMAdd dGMAMessage
 			err := json.Unmarshal(message, &GMAdd)
 			checkErr(err)
 			d.addMemberToGuild(GMAdd)
-		case "GUILD_MEMBER_UPDATE":
+			f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_ADD]
+			if exists {
+				f(d)
+			}
+
+		case EVENT_GUILD_MEMBER_UPDATE:
 			var GMUpdate dGMUMessage
 			err := json.Unmarshal(message, &GMUpdate)
 			checkErr(err)
 			d.updateMemberFromGuild(GMUpdate)
-		case "PRESENCE_UPDATE":
+			f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_UPDATE]
+			if exists {
+				f(d)
+			}
+
+		case EVENT_PRESENCE_UPDATE:
 			var PUpdate dPUMessage
 			err := json.Unmarshal(message, &PUpdate)
 			checkErr(err)
 			d.updatePresence(PUpdate)
-		case "MESSAGE_CREATE":
+			f, exists := d.eventFuncs[EVENT_PRESENCE_UPDATE]
+			if exists {
+				f(d)
+			}
+
+		case EVENT_MESSAGE_CREATE:
 			var MessageCreate MessageResponse
 			err := json.Unmarshal(message, &MessageCreate)
 			checkErr(err)
 			if d.fun != nil {
 				d.fun(MessageCreate, d)
 			}
-		case "READY":
+			f, exists := d.eventFuncs[EVENT_MESSAGE_CREATE]
+			if exists {
+				f(d)
+			}
+
+		case EVENT_READY:
 			var ReadyMessage dReadyMessage
 			err := json.Unmarshal(message, &ReadyMessage)
 			checkErr(err)
@@ -314,8 +341,9 @@ func (d *DiscordBot) Start() (ok bool) {
 			for _, v := range ReadyMessage.D.Guilds {
 				d.Guilds = append(d.Guilds, v)
 			}
-			if d.readyfunc != nil {
-				d.readyfunc(d)
+			f, exists := d.eventFuncs[EVENT_READY]
+			if exists {
+				f(d)
 			}
 		}
 

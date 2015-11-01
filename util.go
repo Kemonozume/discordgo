@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+const (
+	EVENT_GUILD_MEMBER_REMOVE = "GUILD_MEMBER_REMOVE"
+	EVENT_GUILD_MEMBER_ADD    = "GUILD_MEMBER_ADD"
+	EVENT_GUILD_MEMBER_UPDATE = "GUILD_MEMBER_UPDATE"
+	EVENT_PRESENCE_UPDATE     = "PRESENCE_UPDATE"
+	EVENT_MESSAGE_CREATE      = "MESSAGE_CREATE"
+	EVENT_READY               = "READY"
+)
+
 //GATEWAY RESPONSE STRUCT
 type gatewayResponse struct {
 	URL string `json:"url"`
@@ -37,12 +46,12 @@ type dReadyMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		V                 int                `json:"v"`
-		User              dROurUser          `json:"user"`
-		SessionID         string             `json:"session_id"`
+		V                 int              `json:"v"`
+		User              dROurUser        `json:"user"`
+		SessionID         string           `json:"session_id"`
 		ReadState         []readState      `json:"read_state"`
 		PrivateChannels   []privateChannel `json:"private_channels"`
-		HeartbeatInterval int                `json:"heartbeat_interval"`
+		HeartbeatInterval int              `json:"heartbeat_interval"`
 		Guilds            []Guild          `json:"guilds"`
 	} `json:"d"`
 }
@@ -64,10 +73,10 @@ type readState struct {
 }
 
 type privateChannel struct {
-	Recipient recipient `json:"recipient"`
-	LastMessageID string      `json:"last_message_id"`
-	IsPrivate     bool        `json:"is_private"`
-	ID            string      `json:"id"`
+	Recipient     recipient `json:"recipient"`
+	LastMessageID string    `json:"last_message_id"`
+	IsPrivate     bool      `json:"is_private"`
+	ID            string    `json:"id"`
 }
 
 type recipient struct {
@@ -80,16 +89,16 @@ type recipient struct {
 //Guild struct (contains members, member Status and channels
 type Guild struct {
 	VoiceStates  []interface{} `json:"voice_states"`
-	Roles        []Role      `json:"roles"`
+	Roles        []Role        `json:"roles"`
 	Region       string        `json:"region"`
-	Presences    []Presence  `json:"presences"`
+	Presences    []Presence    `json:"presences"`
 	OwnerID      string        `json:"owner_id"`
 	Name         string        `json:"name"`
-	Members      []Member    `json:"members"`
+	Members      []Member      `json:"members"`
 	JoinedAt     time.Time     `json:"joined_at"`
 	ID           string        `json:"id"`
 	Icon         string        `json:"icon"`
-	Channels     []Channel   `json:"channels"`
+	Channels     []Channel     `json:"channels"`
 	AfkTimeout   int           `json:"afk_timeout"`
 	AfkChannelID interface{}   `json:"afk_channel_id"`
 }
@@ -104,7 +113,7 @@ type Role struct {
 }
 
 type Presence struct {
-	User User      `json:"user"`
+	User   User        `json:"user"`
 	Status string      `json:"status"`
 	GameID interface{} `json:"game_id"`
 }
@@ -121,7 +130,7 @@ func (d User) Mention() string {
 }
 
 type Member struct {
-	User User    `json:"user"`
+	User     User      `json:"user"`
 	Roles    []string  `json:"roles"`
 	Mute     bool      `json:"mute"`
 	JoinedAt time.Time `json:"joined_at"`
@@ -152,14 +161,14 @@ type MessageResponse struct {
 	T  string `json:"t"`
 	D  struct {
 		Attachments     []interface{} `json:"attachments"`
-		Author          User        `json:"author"`
+		Author          User          `json:"author"`
 		ChannelID       string        `json:"channel_id"`
 		Content         string        `json:"content"`
 		EditedTimestamp interface{}   `json:"edited_timestamp"`
 		Embeds          []interface{} `json:"embeds"`
 		ID              string        `json:"id"`
 		MentionEveryone bool          `json:"mention_everyone"`
-		Mentions        []User      `json:"mentions"`
+		Mentions        []User        `json:"mentions"`
 		Nonce           string        `json:"nonce"`
 		Timestamp       string        `json:"timestamp"`
 		Tts             bool          `json:"tts"`
@@ -193,7 +202,7 @@ type dGMRMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User User `json:"user"`
+		User    User   `json:"user"`
 		GuildID string `json:"guild_id"`
 	} `json:"d"`
 }
@@ -204,7 +213,7 @@ type dGMAMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User User    `json:"user"`
+		User     User      `json:"user"`
 		Roles    []string  `json:"roles"`
 		JoinedAt time.Time `json:"joined_at"`
 		GuildID  string    `json:"guild_id"`
@@ -217,7 +226,7 @@ type dGMUMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User User   `json:"user"`
+		User    User     `json:"user"`
 		Roles   []string `json:"roles"`
 		GuildID string   `json:"guild_id"`
 	} `json:"d"`
@@ -229,7 +238,7 @@ type dPUMessage struct {
 	S  int    `json:"s"`
 	Op int    `json:"op"`
 	D  struct {
-		User User      `json:"user"`
+		User    User        `json:"user"`
 		Status  string      `json:"status"`
 		Roles   []string    `json:"roles"`
 		GuildID string      `json:"guild_id"`
