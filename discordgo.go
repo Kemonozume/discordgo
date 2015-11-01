@@ -250,102 +250,7 @@ func (d *DiscordBot) Start() (ok bool) {
 			break
 		}
 
-		//transform message to get a look at the T variable that specifies what kind of message we get
-		var obj map[string]interface{}
-		err = json.Unmarshal(message, &obj)
-		if err != nil {
-			log.Println("read: ", err)
-			d.stopHeartBeat()
-			break
-		}
-
-		code, ok := obj["t"].(string)
-		if !ok {
-			log.Println("t doesnt exist")
-			log.Println(message)
-			d.stopHeartBeat()
-			break
-		}
-
-		switch code {
-		case EVENT_GUILD_MEMBER_REMOVE:
-			var GMRemove dGMRMessage
-			err := json.Unmarshal(message, &GMRemove)
-			checkErr(err)
-			d.removeMemberFromGuild(GMRemove.D.User, GMRemove.D.GuildID)
-			f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_REMOVE]
-			if exists {
-				f(d)
-			}
-
-		case EVENT_GUILD_MEMBER_ADD:
-			var GMAdd dGMAMessage
-			err := json.Unmarshal(message, &GMAdd)
-			checkErr(err)
-			d.addMemberToGuild(GMAdd)
-			f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_ADD]
-			if exists {
-				f(d)
-			}
-
-		case EVENT_GUILD_MEMBER_UPDATE:
-			var GMUpdate dGMUMessage
-			err := json.Unmarshal(message, &GMUpdate)
-			checkErr(err)
-			d.updateMemberFromGuild(GMUpdate)
-			f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_UPDATE]
-			if exists {
-				f(d)
-			}
-
-		case EVENT_PRESENCE_UPDATE:
-			var PUpdate dPUMessage
-			err := json.Unmarshal(message, &PUpdate)
-			checkErr(err)
-			d.updatePresence(PUpdate)
-			f, exists := d.eventFuncs[EVENT_PRESENCE_UPDATE]
-			if exists {
-				f(d)
-			}
-
-		case EVENT_MESSAGE_CREATE:
-			var MessageCreate MessageResponse
-			err := json.Unmarshal(message, &MessageCreate)
-			checkErr(err)
-			if d.fun != nil {
-				d.fun(MessageCreate, d)
-			}
-			f, exists := d.eventFuncs[EVENT_MESSAGE_CREATE]
-			if exists {
-				f(d)
-			}
-
-		case EVENT_READY:
-			var ReadyMessage dReadyMessage
-			err := json.Unmarshal(message, &ReadyMessage)
-			checkErr(err)
-			d.ct = time.NewTicker(time.Duration(ReadyMessage.D.HeartbeatInterval) * time.Millisecond)
-			go func() {
-				for range d.ct.C {
-					a := map[string]interface{}{
-						"op": 1,
-						"d":  makeTimestamp(),
-					}
-					by, err := json.Marshal(a)
-					if err != nil {
-						panic(err.Error())
-					}
-					d.conn.WriteMessage(websocket.TextMessage, by)
-				}
-			}()
-			for _, v := range ReadyMessage.D.Guilds {
-				d.Guilds = append(d.Guilds, v)
-			}
-			f, exists := d.eventFuncs[EVENT_READY]
-			if exists {
-				f(d)
-			}
-		}
+		go d.handleMessage(message)
 
 		d.mut.Lock()
 		if !d.isRunning {
@@ -358,6 +263,105 @@ func (d *DiscordBot) Start() (ok bool) {
 	}
 	d.stopHeartBeat()
 	return
+}
+
+func (d *DiscordBot) handleMessage(message []byte) {
+	//transform message to get a look at the T variable that specifies what kind of message we get
+	var obj map[string]interface{}
+	err := json.Unmarshal(message, &obj)
+	if err != nil {
+		log.Println("read: ", err)
+		d.stopHeartBeat()
+		break
+	}
+
+	code, ok := obj["t"].(string)
+	if !ok {
+		log.Println("t doesnt exist")
+		log.Println(message)
+		d.stopHeartBeat()
+		break
+	}
+
+	switch code {
+	case EVENT_GUILD_MEMBER_REMOVE:
+		var GMRemove dGMRMessage
+		err := json.Unmarshal(message, &GMRemove)
+		checkErr(err)
+		d.removeMemberFromGuild(GMRemove.D.User, GMRemove.D.GuildID)
+		f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_REMOVE]
+		if exists {
+			f(d)
+		}
+
+	case EVENT_GUILD_MEMBER_ADD:
+		var GMAdd dGMAMessage
+		err := json.Unmarshal(message, &GMAdd)
+		checkErr(err)
+		d.addMemberToGuild(GMAdd)
+		f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_ADD]
+		if exists {
+			f(d)
+		}
+
+	case EVENT_GUILD_MEMBER_UPDATE:
+		var GMUpdate dGMUMessage
+		err := json.Unmarshal(message, &GMUpdate)
+		checkErr(err)
+		d.updateMemberFromGuild(GMUpdate)
+		f, exists := d.eventFuncs[EVENT_GUILD_MEMBER_UPDATE]
+		if exists {
+			f(d)
+		}
+
+	case EVENT_PRESENCE_UPDATE:
+		var PUpdate dPUMessage
+		err := json.Unmarshal(message, &PUpdate)
+		checkErr(err)
+		d.updatePresence(PUpdate)
+		f, exists := d.eventFuncs[EVENT_PRESENCE_UPDATE]
+		if exists {
+			f(d)
+		}
+
+	case EVENT_MESSAGE_CREATE:
+		var MessageCreate MessageResponse
+		err := json.Unmarshal(message, &MessageCreate)
+		checkErr(err)
+		if d.fun != nil {
+			d.fun(MessageCreate, d)
+		}
+		f, exists := d.eventFuncs[EVENT_MESSAGE_CREATE]
+		if exists {
+			f(d)
+		}
+
+	case EVENT_READY:
+		var ReadyMessage dReadyMessage
+		err := json.Unmarshal(message, &ReadyMessage)
+		checkErr(err)
+		d.ct = time.NewTicker(time.Duration(ReadyMessage.D.HeartbeatInterval) * time.Millisecond)
+		go func() {
+			for range d.ct.C {
+				a := map[string]interface{}{
+					"op": 1,
+					"d":  makeTimestamp(),
+				}
+				by, err := json.Marshal(a)
+				if err != nil {
+					panic(err.Error())
+				}
+				d.conn.WriteMessage(websocket.TextMessage, by)
+			}
+		}()
+		for _, v := range ReadyMessage.D.Guilds {
+			d.Guilds = append(d.Guilds, v)
+		}
+		f, exists := d.eventFuncs[EVENT_READY]
+		if exists {
+			f(d)
+		}
+	}
 }
 
 func (d *DiscordBot) stopHeartBeat() {
