@@ -13,6 +13,8 @@ const (
 	EVENT_PRESENCE_UPDATE     = "PRESENCE_UPDATE"
 	EVENT_MESSAGE_CREATE      = "MESSAGE_CREATE"
 	EVENT_READY               = "READY"
+	EVENT_CHANNEL_UPDATE      = "CHANNEL_UPDATE"
+	EVENT_GUILD_UPDATE        = "GUILD_UPDATE"
 )
 
 //GATEWAY RESPONSE STRUCT
@@ -244,4 +246,58 @@ type dPUMessage struct {
 		GuildID string      `json:"guild_id"`
 		GameID  interface{} `json:"game_id"`
 	} `json:"d"`
+}
+
+//Channel Update Message
+type dCUMessage struct {
+	T  string `json:"t"`
+	S  int    `json:"s"`
+	Op int    `json:"op"`
+	D  struct {
+		Type                 string                   `json:"type"`
+		Topic                string                   `json:"topic"`
+		Position             int                      `json:"position"`
+		PermissionOverwrites []dRPermissionOverwrites `json:"permission_overwrites"`
+		Name                 string                   `json:"name"`
+		LastMessageID        string                   `json:"last_message_id"`
+		IsPrivate            bool                     `json:"is_private"`
+		ID                   string                   `json:"id"`
+		GuildID              string                   `json:"guild_id"`
+	} `json:"d"`
+}
+
+//Guild Update Message
+type dGUMessage struct {
+	T  string `json:"t"`
+	S  int    `json:"s"`
+	Op int    `json:"op"`
+	D  struct {
+		Roles          []Role      `json:"roles"`
+		Region         string      `json:"region"`
+		OwnerID        string      `json:"owner_id"`
+		Name           string      `json:"name"`
+		JoinedAt       time.Time   `json:"joined_at"`
+		ID             string      `json:"id"`
+		Icon           string      `json:"icon"`
+		EmbedEnabled   bool        `json:"embed_enabled"`
+		EmbedChannelID interface{} `json:"embed_channel_id"`
+		AfkTimeout     int         `json:"afk_timeout"`
+		AfkChannelID   interface{} `json:"afk_channel_id"`
+	} `json:"d"`
+}
+
+//Channel Update Request
+type ChannelUpdateRequest struct {
+	Name     string `json:"name"`
+	Position int    `json:"position"`
+	Topic    string `json:"topic"`
+}
+
+//Server Update Request
+type ServerUpdateRequest struct {
+	Name         string      `json:"name"`
+	Icon         string      `json:"icon"`
+	Region       string      `json:"region"`
+	AfkChannelID interface{} `json:"afk_channel_id"`
+	AfkTimeout   int         `json:"afk_timeout"`
 }

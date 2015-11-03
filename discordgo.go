@@ -52,6 +52,8 @@ func NewDiscordBot() *DiscordBot {
 	rest.Create("/gateway").SetMethod("GET").Build("gateway")
 	rest.Create("/channels/{channelid}/messages").SetMethod("POST").Build("sendmessage")
 	rest.Create("/guilds/{guildid}/members/{userid}").SetMethod("PATCH").Build("changerole")
+	rest.Create("/channels/{channelid}").SetMethod("PATCH").Build("changechannelinfo")
+	rest.Create("/guilds/{guildid}").SetMethod("PATCH").Build("changeserverinfo")
 	d.rest = rest
 	return d
 }
@@ -61,7 +63,7 @@ func (d *DiscordBot) modify(req *http.Request) {
 	req.Header.Add("authorization", d.token)
 }
 
-func (d *DiscordBot) getGuildById(id string) (guild Guild, index int) {
+func (d *DiscordBot) GetGuildById(id string) (guild Guild, index int) {
 	for idx, guild1 := range d.Guilds {
 		if guild1.ID == id {
 			guild = guild1
@@ -72,8 +74,19 @@ func (d *DiscordBot) getGuildById(id string) (guild Guild, index int) {
 	return
 }
 
+func (d *DiscordBot) GetChannelById(id string, guild Guild) (channel Channel, index int) {
+	for idx, channel1 := range guild.Channels {
+		if channel1.ID == id {
+			channel = channel1
+			index = idx
+			break
+		}
+	}
+	return
+}
+
 func (d *DiscordBot) updatePresence(msg dPUMessage) {
-	guild, index := d.getGuildById(msg.D.GuildID)
+	guild, index := d.GetGuildById(msg.D.GuildID)
 	if guild.ID != "" {
 		var index2 int
 		var presence Presence
@@ -93,7 +106,7 @@ func (d *DiscordBot) updatePresence(msg dPUMessage) {
 }
 
 func (d *DiscordBot) updateMemberFromGuild(msg dGMUMessage) {
-	guild, index := d.getGuildById(msg.D.GuildID)
+	guild, index := d.GetGuildById(msg.D.GuildID)
 	if guild.ID != "" {
 		var index2 int
 		var umember Member
@@ -111,7 +124,7 @@ func (d *DiscordBot) updateMemberFromGuild(msg dGMUMessage) {
 }
 
 func (d *DiscordBot) removeMemberFromGuild(user User, guildid string) {
-	guild, index := d.getGuildById(guildid)
+	guild, index := d.GetGuildById(guildid)
 	if guild.ID != "" {
 		var members []Member
 		for _, member := range guild.Members {
@@ -125,7 +138,7 @@ func (d *DiscordBot) removeMemberFromGuild(user User, guildid string) {
 }
 
 func (d *DiscordBot) addMemberToGuild(msg dGMAMessage) {
-	guild, index := d.getGuildById(msg.D.GuildID)
+	guild, index := d.GetGuildById(msg.D.GuildID)
 	if guild.ID != "" {
 		member := Member{}
 		member.User = msg.D.User
@@ -135,6 +148,35 @@ func (d *DiscordBot) addMemberToGuild(msg dGMAMessage) {
 		member.Mute = false
 		guild.Members = append(guild.Members, member)
 		d.Guilds[index] = guild
+	}
+}
+
+func (d *DiscordBot) updateChannel(msg dCUMessage) {
+	guild, gindex := d.GetGuildById(msg.D.GuildID)
+	if guild.ID != "" {
+		channel, cindex := d.GetChannelById(msg.D.ID, guild)
+		if channel.Name != "" {
+			channel.Name = msg.D.Name
+			channel.Position = msg.D.Position
+			channel.Topic = msg.D.Topic
+			guild.Channels[cindex] = channel
+			d.Guilds[gindex] = guild
+		}
+	}
+}
+
+func (d *DiscordBot) updateGuild(msg dGUMessage) {
+	guild, gindex := d.GetGuildById(msg.D.ID)
+	if guild.ID != "" {
+		guild.Roles = msg.D.Roles
+		guild.Region = msg.D.Region
+		guild.OwnerID = msg.D.OwnerID
+		guild.Name = msg.D.Name
+		guild.JoinedAt = msg.D.JoinedAt
+		guild.Icon = msg.D.Icon
+		guild.AfkTimeout = msg.D.AfkTimeout
+		guild.AfkChannelID = msg.D.AfkChannelID
+		d.Guilds[gindex] = guild
 	}
 }
 
@@ -336,6 +378,26 @@ func (d *DiscordBot) handleMessage(code string, message []byte) {
 			f(d)
 		}
 
+	case EVENT_CHANNEL_UPDATE:
+		var ChannelUpdate dCUMessage
+		err := json.Unmarshal(message, &ChannelUpdate)
+		checkErr(err)
+		d.updateChannel(ChannelUpdate)
+		f, exists := d.eventFuncs[EVENT_CHANNEL_UPDATE]
+		if exists {
+			f(d)
+		}
+
+	case EVENT_GUILD_UPDATE:
+		var GuildUpdate dGUMessage
+		err := json.Unmarshal(message, &GuildUpdate)
+		checkErr(err)
+		d.updateGuild(GuildUpdate)
+		f, exists := d.eventFuncs[EVENT_GUILD_UPDATE]
+		if exists {
+			f(d)
+		}
+
 	case EVENT_READY:
 		var ReadyMessage dReadyMessage
 		err := json.Unmarshal(message, &ReadyMessage)
@@ -407,6 +469,30 @@ func (d *DiscordBot) ChangeRolesForUser(user Member, guildid string) (err error)
 	_, err = d.rest.Get("changerole").SetParams("guildid", guildid, "userid", user.User.ID).
 		SetBody(bytes.NewReader(bmessage)).Exec(nil)
 
+	return
+}
+
+func (d *DiscordBot) ChangeChannelInformation(channelupdate ChannelUpdateRequest, channelid string) (err error) {
+	bmessage, err := json.Marshal(channelupdate)
+	if err != nil {
+		return
+	}
+	_, err = d.rest.Get("changechannelinfo").
+		SetParams("channelid", channelid).
+		SetBody(bytes.NewReader(bmessage)).
+		Exec(nil)
+	return
+}
+
+func (d *DiscordBot) ChangeServerInformation(serverupdate ServerUpdateRequest, guildid string) (err error) {
+	bmessage, err := json.Marshal(serverupdate)
+	if err != nil {
+		return
+	}
+	_, err = d.rest.Get("changeserverinfo").
+		SetParams("guildid", guildid).
+		SetBody(bytes.NewReader(bmessage)).
+		Exec(nil)
 	return
 }
 
